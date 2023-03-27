@@ -16,6 +16,9 @@ class UserCreateSerializer(serializers.ModelSerializer):
                         'password': {'write_only': True},
                         'id': {'read_only': True}}
 
+    # def get_queryset():
+    #     pass
+
     def create(self, validated_data):
         user = User(
             email=validated_data['email'],
@@ -26,10 +29,3 @@ class UserCreateSerializer(serializers.ModelSerializer):
         user.set_password(validated_data['password'])
         user.save()
         return user
-
-
-# class UserSerializer(serializers.ModelSerializer):
-
-#     class Meta:
-#         model = User
-#         fields = ['email', 'id', 'username', "password"]
