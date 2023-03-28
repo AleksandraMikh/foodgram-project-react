@@ -7,6 +7,7 @@ User = get_user_model()
 
 # Create your models here.
 class Tag(models.Model):
+    '''model for tags'''
 
     name = models.CharField(max_length=200,
                             blank=False, null=False,
