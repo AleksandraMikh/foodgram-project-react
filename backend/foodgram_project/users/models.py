@@ -9,19 +9,25 @@ from django.contrib.auth.models import AbstractUser
 class ProfileUser(AbstractUser):
     email = models.EmailField(
         "Электронная почта",
-        blank=False,
+        blank=False, null=False,
         max_length=254,
-        unique=True,
+        unique=True
     )
     first_name = models.CharField(
         'Имя пользователя',
-        blank=False,
-        max_length=150,
+        blank=False, null=False,
+        max_length=150
     )
-    second_name = models.CharField(
+    last_name = models.CharField(
         'Фамилия пользователя',
-        blank=False,
-        max_length=150,
+        blank=False, null=False,
+        max_length=150
     )
     follow = models.ManyToManyField(
-        'self', related_name='followers', symmetrical=False)
+        'self', related_name='followers', symmetrical=False,
+        blank=True)
+
+    class Meta:
+        ordering = ["email"]
+        verbose_name_plural = "Пользователи"
+        verbose_name = "Пользователь"

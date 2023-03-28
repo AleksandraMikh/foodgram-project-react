@@ -9,11 +9,12 @@ User = get_user_model()
 class Tag(models.Model):
     '''model for tags'''
 
-    name = models.CharField(max_length=200,
+    name = models.CharField('Название',
+                            max_length=200,
                             blank=False, null=False,
                             unique=True)
-    color = models.CharField(max_length=7)
-    slug = models.SlugField(max_length=200,
+    color = models.CharField('Цвет', max_length=7)
+    slug = models.SlugField('Slug', max_length=200,
                             blank=False, null=False,
                             unique=True,
                             )
@@ -21,45 +22,78 @@ class Tag(models.Model):
     def __str__(self):
         return self.slug
 
-
-class Recipe(models.Model):
-    author = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='recipes',
-        blank=False, null=False
-    )
-    image = models.ImageField(
-        upload_to='recipes/images/',
-        null=True
-    )
-    name = models.CharField(max_length=200, blank=False, null=False)
-    text = models.TextField(blank=False, null=False)
-    cooking_time = models.IntegerField(
-        blank=False, null=False,
-        validators=[
-            MinValueValidator(1)
-        ]
-    )
-    tags = models.ManyToManyField(Tag)
-    users_favorited_currents_recipe = models.ManyToManyField(
-        User, related_name='favorite_recipes')
-    users_added_recipe_to_cart = models.ManyToManyField(
-        User, related_name='recipes_in_cart')
-
-    def __str__(self):
-        return self.name
+    class Meta:
+        ordering = ["name"]
+        verbose_name_plural = "Тэги"
+        verbose_name = "Тэг"
 
 
 class Ingredient(models.Model):
-    name = models.CharField(max_length=200, blank=False, null=False)
+    name = models.CharField('Название', max_length=200,
+                            blank=False, null=False)
     measurement_unit = models.CharField(
-        max_length=200, blank=False, null=False)
-    recipes = models.ManyToManyField(
-        Recipe, through='Ingredient_Recipe', related_name='ingredients')
+        'Единицы измерения', max_length=200, blank=False, null=False)
 
     def __str__(self):
         return self.name
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name_plural = "Ингредиенты"
+        verbose_name = "Ингредиент"
+
+
+class Recipe(models.Model):
+    author = models.ForeignKey(User,
+                               verbose_name='Автор',
+                               on_delete=models.CASCADE,
+                               related_name='recipes',
+                               blank=False, null=False
+                               )
+    image = models.ImageField(verbose_name='Изображение',
+                              upload_to='recipes/images/',
+                              null=True
+                              )
+    name = models.CharField(verbose_name='Название', max_length=200,
+                            blank=False, null=False)
+    text = models.TextField(verbose_name='Описание', blank=False, null=False)
+    cooking_time = models.IntegerField(verbose_name='Время приготовления',
+                                       blank=False, null=False,
+                                       validators=[
+                                           MinValueValidator(1)
+                                       ]
+                                       )
+    tags = models.ManyToManyField(Tag, verbose_name='Тэги')
+    ingredients = models.ManyToManyField(
+        Ingredient,
+        verbose_name='Ингредиенты',
+        related_name='recipes_with_ingredient',
+        blank=False)
+    users_favorited_currents_recipe = models.ManyToManyField(
+        User,
+        verbose_name='Добавили в избранное',
+        related_name='favorite_recipes', blank=True)
+    users_added_recipe_to_cart = models.ManyToManyField(
+        User,
+        verbose_name='Добавили в корзину',
+        related_name='recipes_in_cart', blank=True)
+
+    def __str__(self):
+        return self.name
+
+    def count_users_loved_recipe(self) -> int:
+        if not self.users_favorited_currents_recipe:
+            return 0
+        return len(self.users_favorited_currents_recipe.all())
+
+    count_users_loved_recipe.short_description = ('Сколько пользователей'
+                                                  ' добавили рецепт'
+                                                  ' в избранное')
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name_plural = "Рецепты"
+        verbose_name = "Рецепт"
 
 
 class Ingredient_Recipe(models.Model):
