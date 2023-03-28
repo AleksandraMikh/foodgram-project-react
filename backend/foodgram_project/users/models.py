@@ -23,3 +23,5 @@ class ProfileUser(AbstractUser):
         blank=False,
         max_length=150,
     )
+    follow = models.ManyToManyField(
+        'self', related_name='followers', symmetrical=False)
