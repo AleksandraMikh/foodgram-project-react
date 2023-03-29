@@ -77,6 +77,9 @@ class Recipe(models.Model):
         User,
         verbose_name='Добавили в корзину',
         related_name='recipes_in_cart', blank=True)
+    pub_date = models.DateTimeField(
+        auto_now_add=True
+    )
 
     def __str__(self):
         return self.name
@@ -91,7 +94,7 @@ class Recipe(models.Model):
                                                   ' в избранное')
 
     class Meta:
-        ordering = ["name"]
+        ordering = ["-pub_date"]
         verbose_name_plural = "Рецепты"
         verbose_name = "Рецепт"
 
