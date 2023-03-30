@@ -9,7 +9,9 @@ class RecipeAdmin(admin.ModelAdmin):
     search_fields = ['name', 'author', 'tags']
     readonly_fields = ('count_users_loved_recipe',)
     fields = ('count_users_loved_recipe', 'name',
-              'author', 'image', 'text', 'cooking_time',
+              'author', 'image', 'text',
+              #   'ingredients',
+              'cooking_time',
               'tags', 'users_favorited_currents_recipe',
               'users_added_recipe_to_cart')
 
