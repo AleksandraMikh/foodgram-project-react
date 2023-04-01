@@ -1,4 +1,8 @@
-from django.http import Http404
+import base64  # Модуль с функциями кодирования и декодирования base64
+
+from django.core.files.base import ContentFile
+from django.shortcuts import get_object_or_404
+from django.http import Http404, JsonResponse
 
 from rest_framework import serializers, exceptions
 from django.contrib.auth.models import AnonymousUser
@@ -6,6 +10,10 @@ from rest_framework.fields import CurrentUserDefault
 
 from recipes.models import Tag, Ingredient, Recipe, Ingredient_Recipe
 from users.serializers import UserCreateSerializer
+
+
+class notMatchingQuery(exceptions.ValidationError):
+    pass
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -84,97 +92,65 @@ class RecipeReadSerializer(serializers.ModelSerializer):
         return False
 
 
+class Base64ImageField(serializers.ImageField):
+    def to_internal_value(self, data):
+        if isinstance(data, str) and data.startswith('data:image'):
+            format, imgstr = data.split(';base64,')
+            ext = format.split('/')[-1]
+            data = ContentFile(base64.b64decode(imgstr), name='temp.' + ext)
+        return super().to_internal_value(data)
+
+
 class RecipeWriteSerializer(serializers.ModelSerializer):
-    tags = TagSerializer(many=True, required=True)
-    author = UserCreateSerializer(read_only=True)
+    tags = serializers.ListField(
+        child=serializers.IntegerField(min_value=0),
+        required=True
+    )
+    author = serializers.HiddenField(
+        default=serializers.CurrentUserDefault()
+    )
     ingredients = IngredientRecipeSerializer(
         source='ingredient_recipe', many=True,
-        read_only=True)
+        required=True)
+
+    image = Base64ImageField(required=True)
 
     class Meta:
         model = Recipe
-        fields = ["id",
-                  "tags",
-                  "author",
-                  "ingredients",
-                  #   "is_favorited",
-                  #   "is_in_shopping_cart",
-                  "name",
-                  "image",
-                  "text",
-                  "cooking_time"]
+        fields = [
+            "author",
+            "ingredients",
+            "tags",
+            "image",
+            "name",
+            "text",
+            "cooking_time"]
         depth = 1
 
-    # def validate_tags(self, value):
-    #     for tag in value:
-    #         if type(tag) != int:
-    #             raise exceptions.ValidationError(
-    #                 'Tags key must contain list of integers')
-    #     return value
-    # def validate_tags(self, data):
-    #     if "tags" not in data:
-    #         raise exceptions.ValidationError(
-    #             'Tags key required')
-    #     tags = data.pop("tags")
+    def create(self, validated_data):
 
-    #     for tag in tags:
-    #         if type(tag) != int:
-    #             raise exceptions.ValidationError(
-    #                 'Tags key must contain list of integers')
-    #     return tags, data
+        tags = validated_data.pop("tags")
+        ingredients = validated_data.pop("ingredient_recipe")
+        r = Recipe(**validated_data)
+        r.save()
+        for tag in tags:
+            try:
+                t = Tag.objects.get(pk=tag)
+            except Tag.DoesNotExist:
+                raise exceptions.NotFound(
+                    f"Tag with id {tag} doesn't exist")
+            t = get_object_or_404(Tag, pk=tag)
+            r.tags.add(t)
 
-    # def validate_ingredients(self, data):
-    #     if "ingredients" not in data:
-    #         raise exceptions.ValidationError(
-    #             'Ingredients key required')
-    #     ingredients = data.pop("ingredients")
-    #     for ingredient in ingredients:
-    #         if (type(ingredient['id']) != int or
-    #                 type(ingredient['amount']) != int):
-    #             raise exceptions.ValidationError(
-    #                 'Ingredients key must contain '
-    #                 'dictionary with integer values')
-    #     return ingredients, data
-
-    # def to_internal_value(self, data):
-        # tags, data = self.validate_tags(data)
-        # ingredients, data = self.validate_ingredients(data)
-
-        # validated_data = super().to_internal_value(data)
-        # validated_data['tags'] = tags
-        # validated_data['ingredients'] = ingredients
-        # return validated_data
-
-    # def create(self, validated_data):
-
-    #     # print(validated_data)
-    #     # print(self.context.get('request').user)
-
-    #     tags = validated_data.pop("tags")
-
-    #     ingredients = validated_data.pop("ingredients")
-
-    #     r = Recipe(**validated_data)
-    #     if self.context.get('request').user is AnonymousUser:
-    #         raise exceptions.NotAuthenticated()
-    #     r.author = self.context.get('request').user
-    #     r.save()
-    #     for tag in tags:
-    #         try:
-    #             t = Tag.objects.get(pk=tag)
-    #             print(t)
-    #         except Tag.DoesNotExist:
-    #             raise Http404(f'Tag with id {tag} not found.')
-    #         r.tags.add(t)
-
-    #     for ingredient in ingredients:
-    #         try:
-    #             i = Ingredient.objects.get(pk=ingredient['id'])
-    #         except Ingredient.DoesNotExist:
-    #             raise Http404
-    #         i_s = Ingredient_Recipe(ingredient=i,
-    #                                 recipe=r,
-    #                                 amount=ingredient['amount'])
-    #         i_s.save()
-    #     r.save()
-    #     return r
+        for ingredient in ingredients:
+            try:
+                i = Ingredient.objects.get(pk=ingredient['ingredient']['id'])
+            except Ingredient.DoesNotExist:
+                raise exceptions.NotFound(
+                    f"Ingredient with id {ingredient['ingredient']['id']} doesn't exist")
+            i_s = Ingredient_Recipe(ingredient=i,
+                                    recipe=r,
+                                    amount=ingredient['amount'])
+            i_s.save()
+        r.save()
+        return r
