@@ -3,6 +3,7 @@ import base64  # Модуль с функциями кодирования и д
 from django.core.files.base import ContentFile
 from django.shortcuts import get_object_or_404
 from django.http import Http404, JsonResponse
+from django.db import IntegrityError
 
 from rest_framework import serializers, exceptions
 from django.contrib.auth.models import AnonymousUser
@@ -12,8 +13,11 @@ from recipes.models import Tag, Ingredient, Recipe, Ingredient_Recipe
 from users.serializers import UserCreateSerializer
 
 
-class notMatchingQuery(exceptions.ValidationError):
-    pass
+class DoubleIngredientRecipeRelationship(exceptions.APIException):
+    status_code = 400
+    default_detail = ('Integrity error, there might be '
+                      'duplicate ingredient in request.')
+    default_code = 'bad_request'
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -139,9 +143,9 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             except Tag.DoesNotExist:
                 raise exceptions.NotFound(
                     f"Tag with id {tag} doesn't exist")
-            t = get_object_or_404(Tag, pk=tag)
             r.tags.add(t)
 
+        ingredients_to_add = []
         for ingredient in ingredients:
             try:
                 i = Ingredient.objects.get(pk=ingredient['ingredient']['id'])
@@ -151,6 +155,34 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             i_s = Ingredient_Recipe(ingredient=i,
                                     recipe=r,
                                     amount=ingredient['amount'])
-            i_s.save()
-        r.save()
+            ingredients_to_add.append(i_s)
+        try:
+            Ingredient_Recipe.objects.bulk_create(ingredients_to_add)
+        except IntegrityError:
+            raise DoubleIngredientRecipeRelationship()
+
         return r
+
+    def update(self, instance, validated_data):
+        ingredients = validated_data.pop("ingredient_recipe")
+
+        instance = super().update(instance, validated_data)
+
+        ingredients_to_add = []
+        for ingredient in ingredients:
+            try:
+                i = Ingredient.objects.get(pk=ingredient['ingredient']['id'])
+            except Ingredient.DoesNotExist:
+                raise exceptions.NotFound(
+                    f"Ingredient with id {ingredient['ingredient']['id']} doesn't exist")
+            i_s = Ingredient_Recipe(ingredient=i,
+                                    recipe=instance,
+                                    amount=ingredient['amount'])
+            ingredients_to_add.append(i_s)
+
+        Ingredient_Recipe.objects.filter(recipe=instance).delete()
+        try:
+            Ingredient_Recipe.objects.bulk_create(ingredients_to_add)
+        except IntegrityError:
+            raise DoubleIngredientRecipeRelationship()
+        return instance
