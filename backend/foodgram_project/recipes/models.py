@@ -73,11 +73,13 @@ class Recipe(models.Model):
     users_favorited_currents_recipe = models.ManyToManyField(
         User,
         verbose_name='Добавили в избранное',
-        related_name='favorite_recipes', blank=True)
+        related_name='favorite_recipes', blank=True,
+    )
     users_added_recipe_to_cart = models.ManyToManyField(
         User,
         verbose_name='Добавили в корзину',
-        related_name='recipes_in_cart', blank=True)
+        related_name='recipes_in_cart', blank=True,
+    )
     pub_date = models.DateTimeField(
         auto_now_add=True
     )

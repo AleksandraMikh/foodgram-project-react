@@ -186,3 +186,12 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         except IntegrityError:
             raise DoubleIngredientRecipeRelationship()
         return instance
+
+
+class RecipeFavoriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Recipe
+        fields = ["id",
+                  "name",
+                  "image",
+                  "cooking_time"]

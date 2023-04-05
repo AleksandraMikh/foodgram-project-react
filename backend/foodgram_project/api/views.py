@@ -1,10 +1,13 @@
 from django.db import models
 from django.shortcuts import get_object_or_404
-from rest_framework import viewsets, permissions, filters, response, status
+from django.http import Http404
+from rest_framework import viewsets, permissions, filters, response, status, exceptions
+from rest_framework.decorators import action
 
 from recipes.models import Tag, Ingredient, Recipe
 from .serializers import (TagSerializer, IngredientSerializer,
-                          RecipeReadSerializer, RecipeWriteSerializer
+                          RecipeReadSerializer, RecipeWriteSerializer,
+                          RecipeFavoriteSerializer
                           )
 from .permissions import IsOwnerOrReadOnly
 
@@ -82,5 +85,44 @@ class RecipeViewSet(viewsets.ModelViewSet):
                                  headers=headers
                                  )
 
-    # def perform_destroy(self, instance):
-    #     pass
+    @action(detail=True, methods=['post'],
+            serializer_class=RecipeFavoriteSerializer)
+    def favorite(self, request, pk=None):
+        try:
+            recipe = get_object_or_404(Recipe,
+                                       pk=pk)
+        except Http404:
+            return response.Response({
+                "errors": f"Рецепт с id = {pk} не найден"},
+                status=status.HTTP_400_BAD_REQUEST)
+        curr_user = request.user
+        if recipe in curr_user.favorite_recipes.all():
+            return response.Response({
+                "errors": f"Рецепт с id={pk} уже добавлен в избранные"},
+                status=status.HTTP_400_BAD_REQUEST)
+        try:
+            curr_user.favorite_recipes.add(recipe)
+        except exceptions.APIException as error:
+            return response.Response({
+                "errors": error},
+                status=status.HTTP_400_BAD_REQUEST)
+        return response.Response(RecipeFavoriteSerializer(recipe).data,
+                                 status=status.HTTP_200_OK)
+
+    @favorite.mapping.delete
+    def delete_favorite(self, request, pk=None):
+        try:
+            recipe = get_object_or_404(Recipe,
+                                       pk=pk)
+        except Http404:
+            return response.Response({
+                "errors": f"Рецепт с id = {pk} не найден"},
+                status=status.HTTP_400_BAD_REQUEST)
+        curr_user = request.user
+        if recipe in curr_user.favorite_recipes.all():
+            curr_user.favorite_recipes.remove(recipe)
+            return response.Response(status=status.HTTP_204_NO_CONTENT)
+        return response.Response({
+            "errors": (f'Текущий пользователь не добавлял рецепт с id={pk} '
+                       'в список избранных.')},
+            status=status.HTTP_400_BAD_REQUEST)
