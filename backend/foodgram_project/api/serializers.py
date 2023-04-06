@@ -80,17 +80,22 @@ class RecipeReadSerializer(serializers.ModelSerializer):
         depth = 1
 
     def get_is_favorited(self, obj):
-        curr_user = self.context.get('request').user
         if not self.context.get('request').auth:
             return None
+        if hasattr(obj, 'is_favorited'):
+            return obj.is_favorited
+        curr_user = self.context.get('request').user
         if obj in curr_user.favorite_recipes.all():
             return True
         return False
 
     def get_is_in_shopping_cart(self, obj):
-        curr_user = self.context.get('request').user
+
         if not self.context.get('request').auth:
             return None
+        if hasattr(obj, 'is_in_shopping_cart'):
+            return obj.is_in_shopping_cart
+        curr_user = self.context.get('request').user
         if obj in curr_user.recipes_in_cart.all():
             return True
         return False
