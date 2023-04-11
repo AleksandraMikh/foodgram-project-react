@@ -9,9 +9,16 @@ from django.http import FileResponse
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from django.http import Http404
-from rest_framework import viewsets, permissions, filters, response, status, exceptions
+from rest_framework import (viewsets,
+                            permissions,
+                            filters,
+                            response,
+                            status,
+                            exceptions)
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
+from rest_framework.request import Request
+from rest_framework.generics import ListAPIView
 from django_filters import (rest_framework as rest_filters,
                             FilterSet, TypedChoiceFilter,
                             ModelMultipleChoiceFilter)
@@ -20,7 +27,8 @@ from distutils.util import strtobool
 from recipes.models import Tag, Ingredient, Recipe, Ingredient_Recipe
 from .serializers import (TagSerializer, IngredientSerializer,
                           RecipeReadSerializer, RecipeWriteSerializer,
-                          RecipeFavoriteSerializer
+                          RecipeMinifiedSerializer,
+                          UserSubscribeSerializer
                           )
 from .permissions import IsOwnerOrReadOnly
 
@@ -142,7 +150,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
                                  )
 
     @action(detail=True, methods=['post'],
-            serializer_class=RecipeFavoriteSerializer)
+            serializer_class=RecipeMinifiedSerializer)
     def favorite(self, request, pk=None):
         try:
             recipe = get_object_or_404(Recipe,
@@ -162,7 +170,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return response.Response({
                 "errors": error},
                 status=status.HTTP_400_BAD_REQUEST)
-        return response.Response(RecipeFavoriteSerializer(recipe).data,
+        return response.Response(RecipeMinifiedSerializer(recipe).data,
                                  status=status.HTTP_200_OK)
 
     @favorite.mapping.delete
@@ -184,7 +192,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['post'],
-            serializer_class=RecipeFavoriteSerializer)
+            serializer_class=RecipeMinifiedSerializer)
     def shopping_cart(self, request, pk=None):
         try:
             recipe = get_object_or_404(Recipe,
@@ -204,7 +212,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return response.Response({
                 "errors": error},
                 status=status.HTTP_400_BAD_REQUEST)
-        return response.Response(RecipeFavoriteSerializer(recipe).data,
+        return response.Response(RecipeMinifiedSerializer(recipe).data,
                                  status=status.HTTP_200_OK)
 
     @shopping_cart.mapping.delete
@@ -262,7 +270,46 @@ class RecipeViewSet(viewsets.ModelViewSet):
         t.setStyle(LIST_STYLE)
         doc.build([t])
 
-        # p.showPage()
-        # p.save()
         buffer.seek(0)
         return FileResponse(buffer, as_attachment=True, filename='hello.pdf')
+
+
+@api_view(['DELETE', 'POST'])
+def subscribe(request: Request, user_id: str):
+    try:
+        user_to_subscribe = get_object_or_404(User,
+                                              pk=user_id)
+    except Http404:
+        raise exceptions.NotFound(f"Пользователь с id = {user_id} не найден")
+
+    if request.user.pk == int(user_id):
+        return Response({
+            "errors": f"Ваш id = {request.user.pk}, подписка на себя "
+            "запрещена."},
+            status=status.HTTP_400_BAD_REQUEST)
+
+    if request.method == 'POST':
+        if request.user.follow.filter(follow__pk=user_id):
+            return Response({
+                "errors": f"Вы уже подписаны на пользователя с id = {user_id}"},
+                status=status.HTTP_400_BAD_REQUEST)
+        request.user.follow.add(user_to_subscribe)
+        serializer = UserSubscribeSerializer(
+            user_to_subscribe, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    if request.method == 'DELETE':
+        if not request.user.follow.filter(follow__pk=user_id):
+            return Response({
+                "errors": f'Вы не подписаны на пользователя с id={user_id}, '
+                ' вы не можете отписаться от него'},
+                status=status.HTTP_400_BAD_REQUEST)
+        request.user.follow.remove(user_to_subscribe)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SubscriptionsListView(ListAPIView):
+    serializer_class = UserSubscribeSerializer
+
+    def get_queryset(self):
+        return self.request.user.follow.all()

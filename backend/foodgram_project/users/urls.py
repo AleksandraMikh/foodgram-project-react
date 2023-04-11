@@ -1,5 +1,4 @@
-from django.urls import path, include, re_path
-from .views import subscribe
+from django.urls import path, include
 
 app = 'users'
 
@@ -9,8 +8,8 @@ urlpatterns = [
     path('auth/', include('djoser.urls.authtoken'))
 ]
 
-urlpatterns.append(
-    re_path(r'^users\/(?P<user_id>\d+)\/subscribe/',
-            subscribe,
-            name='subscribe')
-)
+# urlpatterns.append(
+#     re_path(r'^users\/(?P<user_id>\d+)\/subscribe/',
+#             subscribe,
+#             name='subscribe')
+# )

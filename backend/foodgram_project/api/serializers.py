@@ -4,13 +4,16 @@ from django.core.files.base import ContentFile
 from django.shortcuts import get_object_or_404
 from django.http import Http404, JsonResponse
 from django.db import IntegrityError
+from django.contrib.auth import get_user_model
 
 from rest_framework import serializers, exceptions
 from django.contrib.auth.models import AnonymousUser
 from rest_framework.fields import CurrentUserDefault
 
 from recipes.models import Tag, Ingredient, Recipe, Ingredient_Recipe
-from users.serializers import UserCreateSerializer
+from users.serializers import UserManageSerializer
+
+User = get_user_model()
 
 
 class DoubleIngredientRecipeRelationship(exceptions.APIException):
@@ -58,7 +61,7 @@ class IngredientRecipeSerializer(serializers.ModelSerializer):
 
 class RecipeReadSerializer(serializers.ModelSerializer):
     tags = TagSerializer(many=True, required=True)
-    author = UserCreateSerializer(read_only=True)
+    author = UserManageSerializer(read_only=True)
     ingredients = IngredientRecipeSerializer(
         source='ingredient_recipe', many=True,
         read_only=True)
@@ -192,10 +195,29 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         return instance
 
 
-class RecipeFavoriteSerializer(serializers.ModelSerializer):
+class RecipeMinifiedSerializer(serializers.ModelSerializer):
     class Meta:
         model = Recipe
         fields = ["id",
                   "name",
                   "image",
                   "cooking_time"]
+
+
+class UserSubscribeSerializer(UserManageSerializer):
+    recipes = RecipeMinifiedSerializer(many=True)
+    recipes_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['email', 'id', 'username',
+                  'first_name', 'last_name',
+                  'is_subscribed', 'recipes',
+                  'recipes_count']
+
+    def get_recipes_count(self, obj):
+        if hasattr(obj, 'recipes'):
+            return len(obj.recipes.all())
+        raise TypeError('Serializer excpected object of'
+                        ' type User with attribute "recipes", '
+                        f'but got {type(obj)} without attribute "recipes"')

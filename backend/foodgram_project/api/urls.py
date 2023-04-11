@@ -1,6 +1,6 @@
-from django.urls import path, include
+from django.urls import path, include, re_path
 
-from .views import TagViewSet, IngredientViewSet, RecipeViewSet
+from .views import TagViewSet, IngredientViewSet, RecipeViewSet, subscribe, SubscriptionsListView
 from rest_framework.routers import DefaultRouter
 
 app = 'api'
@@ -12,8 +12,23 @@ router.register('recipes', RecipeViewSet, basename='recipes')
 
 
 urlpatterns = [
-    path('', include('users.urls')),
+    re_path(r'^users/subscriptions/',
+            SubscriptionsListView.as_view(),
+            name='subscribtions'
+            ),
+    path('', include('users.urls'))
 
 ]
 
 urlpatterns.extend(router.urls)
+
+urlpatterns.append(
+    re_path(r'^users\/(?P<user_id>\d+)\/subscribe/',
+            subscribe,
+            name='subscribe'))
+
+# urlpatterns.append(
+#     re_path(r'^users/subscriptions/',
+#             SubscriptionsListView.as_view(),
+#             name='subscribtions'
+#             ))
