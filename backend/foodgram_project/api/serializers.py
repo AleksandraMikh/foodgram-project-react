@@ -90,7 +90,6 @@ class RecipeReadSerializer(serializers.ModelSerializer):
         return False
 
     def get_is_in_shopping_cart(self, obj):
-
         if not self.context.get('request').auth:
             return None
         if hasattr(obj, 'is_in_shopping_cart'):

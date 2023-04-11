@@ -1,16 +1,23 @@
+import io
+from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.platypus import Table, SimpleDocTemplate, TableStyle
+from reportlab.lib import colors
 from django.db import models
-from django.db.models.query import EmptyQuerySet
+from django.http import FileResponse
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from django.http import Http404
 from rest_framework import viewsets, permissions, filters, response, status, exceptions
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view
+from rest_framework.response import Response
 from django_filters import (rest_framework as rest_filters,
                             FilterSet, TypedChoiceFilter,
                             ModelMultipleChoiceFilter)
 from distutils.util import strtobool
 
-from recipes.models import Tag, Ingredient, Recipe
+from recipes.models import Tag, Ingredient, Recipe, Ingredient_Recipe
 from .serializers import (TagSerializer, IngredientSerializer,
                           RecipeReadSerializer, RecipeWriteSerializer,
                           RecipeFavoriteSerializer
@@ -175,3 +182,87 @@ class RecipeViewSet(viewsets.ModelViewSet):
             "errors": (f'Текущий пользователь не добавлял рецепт с id={pk} '
                        'в список избранных.')},
             status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'],
+            serializer_class=RecipeFavoriteSerializer)
+    def shopping_cart(self, request, pk=None):
+        try:
+            recipe = get_object_or_404(Recipe,
+                                       pk=pk)
+        except Http404:
+            return response.Response({
+                "errors": f"Рецепт с id = {pk} не найден"},
+                status=status.HTTP_400_BAD_REQUEST)
+        curr_user = request.user
+        if recipe in curr_user.recipes_in_cart.all():
+            return response.Response({
+                "errors": f"Рецепт с id={pk} уже добавлен в корзину"},
+                status=status.HTTP_400_BAD_REQUEST)
+        try:
+            curr_user.recipes_in_cart.add(recipe)
+        except exceptions.APIException as error:
+            return response.Response({
+                "errors": error},
+                status=status.HTTP_400_BAD_REQUEST)
+        return response.Response(RecipeFavoriteSerializer(recipe).data,
+                                 status=status.HTTP_200_OK)
+
+    @shopping_cart.mapping.delete
+    def delete_shopping_cart(self, request, pk=None):
+        try:
+            recipe = get_object_or_404(Recipe,
+                                       pk=pk)
+        except Http404:
+            return response.Response({
+                "errors": f"Рецепт с id = {pk} не найден"},
+                status=status.HTTP_400_BAD_REQUEST)
+        curr_user = request.user
+        if recipe in curr_user.recipes_in_cart.all():
+            curr_user.recipes_in_cart.remove(recipe)
+            return response.Response(status=status.HTTP_204_NO_CONTENT)
+        return response.Response({
+            "errors": (f'Текущий пользователь не добавлял рецепт с id={pk} '
+                       'в корзину.')},
+            status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['get'])
+    def download_shopping_cart(self, request, *args, **kwargs):
+        buffer = io.BytesIO()
+
+        pdfmetrics.registerFont(
+            TTFont('TimesNewRoman', 'static/api/fonts/times new roman.ttf'))
+
+        recipes = request.user.recipes_in_cart.all()
+        queryset = Ingredient_Recipe.objects.filter(
+            recipe__in=recipes).values(
+            'ingredient__name',
+            'ingredient__measurement_unit').annotate(amount=models.Sum('amount'))
+
+        content = [('ингредиент', 'количество', 'единица измерения'), ]
+
+        for item in queryset:
+            print(item)
+            content.append(
+                (item['ingredient__name'],
+                 item['amount'],
+                 item['ingredient__measurement_unit']))
+
+        doc = SimpleDocTemplate(buffer)
+        t = Table(content)
+
+        # LIST_STYLE = TableStyle()
+        LIST_STYLE = TableStyle(
+            [('LINEABOVE', (0, 0), (-1, 0), 2, colors.green),
+             ('LINEABOVE', (0, 1), (-1, 1), 2, colors.green),
+                ('LINEBELOW', (0, 1), (-1, -1), 0.25, colors.black),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONT', (0, 0), (-1, -1), 'TimesNewRoman')]
+        )
+
+        t.setStyle(LIST_STYLE)
+        doc.build([t])
+
+        # p.showPage()
+        # p.save()
+        buffer.seek(0)
+        return FileResponse(buffer, as_attachment=True, filename='hello.pdf')
