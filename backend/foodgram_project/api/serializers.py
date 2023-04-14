@@ -1,14 +1,10 @@
-import base64  # Модуль с функциями кодирования и декодирования base64
+import base64
 
 from django.core.files.base import ContentFile
-from django.shortcuts import get_object_or_404
-from django.http import Http404, JsonResponse
 from django.db import IntegrityError
 from django.contrib.auth import get_user_model
 
 from rest_framework import serializers, exceptions
-from django.contrib.auth.models import AnonymousUser
-from rest_framework.fields import CurrentUserDefault
 
 from recipes.models import Tag, Ingredient, Recipe, Ingredient_Recipe
 from users.serializers import UserManageSerializer
@@ -158,7 +154,8 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
                 i = Ingredient.objects.get(pk=ingredient['ingredient']['id'])
             except Ingredient.DoesNotExist:
                 raise exceptions.NotFound(
-                    f"Ingredient with id {ingredient['ingredient']['id']} doesn't exist")
+                    f"Ingredient with id {ingredient['ingredient']['id']} "
+                    "doesn't exist")
             i_s = Ingredient_Recipe(ingredient=i,
                                     recipe=r,
                                     amount=ingredient['amount'])
@@ -181,7 +178,8 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
                 i = Ingredient.objects.get(pk=ingredient['ingredient']['id'])
             except Ingredient.DoesNotExist:
                 raise exceptions.NotFound(
-                    f"Ingredient with id {ingredient['ingredient']['id']} doesn't exist")
+                    f"Ingredient with id {ingredient['ingredient']['id']} "
+                    "doesn't exist")
             i_s = Ingredient_Recipe(ingredient=i,
                                     recipe=instance,
                                     amount=ingredient['amount'])

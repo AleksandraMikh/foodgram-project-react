@@ -1,16 +1,6 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-# try:
-# from api.serializers import RecipeMinifiedSerializer
-# except ImportError:
-#     raise ImportError('Can not import RecipeMinifiedSerializer from '
-#                       'api.serializers module. Simply comment this '
-#                       'import and "recipe" field in '
-#                       'UserSubscribeSerilizer. '
-#                       'Also you probably might comment '
-#                       '"count recipe" field.')
-
 
 User = get_user_model()
 
@@ -30,7 +20,6 @@ class UserManageSerializer(serializers.ModelSerializer):
 
     def get_is_subscribed(self, obj):
         request = self.context.get('request', None)
-        print(self.context)
         if not request:
             return None
         user = request.user
