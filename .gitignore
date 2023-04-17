@@ -133,3 +133,6 @@ dmypy.json
 
 # .idea
 .idea
+
+#media
+backend/foodgram_project/media/

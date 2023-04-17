@@ -1,6 +1,5 @@
 from django.contrib import admin
 from .models import Tag, Recipe, Ingredient
-# Register your models here.
 
 
 class IngredientInlineAdmin(admin.TabularInline):
