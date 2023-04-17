@@ -3,6 +3,10 @@ from .models import Tag, Recipe, Ingredient
 # Register your models here.
 
 
+class IngredientInlineAdmin(admin.TabularInline):
+    model = Recipe.ingredients.through
+
+
 class RecipeAdmin(admin.ModelAdmin):
     list_display = ('name', 'author')
     list_filter = ['name', 'author', 'tags']
@@ -10,10 +14,11 @@ class RecipeAdmin(admin.ModelAdmin):
     readonly_fields = ('count_users_loved_recipe',)
     fields = ('count_users_loved_recipe', 'name',
               'author', 'image', 'text',
-              #   'ingredients',
               'cooking_time',
               'tags', 'users_favorited_currents_recipe',
               'users_added_recipe_to_cart')
+    save_on_top = True
+    inlines = (IngredientInlineAdmin,)
 
     def has_add_permission(self, request, obj=None):
         return False
