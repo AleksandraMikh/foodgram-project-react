@@ -11,7 +11,6 @@ python3 -m venv venv
 source venv/bin/activate
 cd backend/foodgram_project/
 pip install -r requirements.txt
-cd foodgram_project
 python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver
