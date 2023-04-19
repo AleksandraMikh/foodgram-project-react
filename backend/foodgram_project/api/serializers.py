@@ -6,7 +6,8 @@ from django.contrib.auth import get_user_model
 
 from rest_framework import serializers, exceptions
 
-from recipes.models import Tag, Ingredient, Recipe, Ingredient_Recipe
+from recipes.models import (Tag, Ingredient, Recipe,
+                            Ingredient_Recipe, Favorite, Cart)
 from users.serializers import UserManageSerializer
 
 User = get_user_model()
@@ -79,12 +80,13 @@ class RecipeReadSerializer(serializers.ModelSerializer):
         depth = 1
 
     def get_is_favorited(self, obj):
+
         if not self.context.get('request').auth:
             return None
         if hasattr(obj, 'is_favorited'):
             return obj.is_favorited
         curr_user = self.context.get('request').user
-        if obj in curr_user.favorite_recipes.all():
+        if Favorite.objects.filter(user=curr_user, recipe=obj).exists():
             return True
         return False
 
@@ -94,7 +96,7 @@ class RecipeReadSerializer(serializers.ModelSerializer):
         if hasattr(obj, 'is_in_shopping_cart'):
             return obj.is_in_shopping_cart
         curr_user = self.context.get('request').user
-        if obj in curr_user.recipes_in_cart.all():
+        if Cart.objects.filter(user=curr_user, recipe=obj).exists():
             return True
         return False
 

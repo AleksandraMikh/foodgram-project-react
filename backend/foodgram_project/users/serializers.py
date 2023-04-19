@@ -1,11 +1,15 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from djoser.serializers import UserCreateSerializer, UserSerializer
+from .models import Follow
 
 
 User = get_user_model()
 
 
-class UserManageSerializer(serializers.ModelSerializer):
+class UserManageSerializer(
+        # serializers.ModelSerializer
+        UserCreateSerializer):
     is_subscribed = serializers.SerializerMethodField()
 
     class Meta:
@@ -19,15 +23,10 @@ class UserManageSerializer(serializers.ModelSerializer):
                         'id': {'read_only': True}}
 
     def get_is_subscribed(self, obj):
-        request = self.context.get('request', None)
-        if not request:
-            return None
-        user = request.user
-        if not user.is_authenticated:
-            return None
-        if obj in user.follow.all():
-            return True
-        return False
+        user = self.context.get('request').user
+        if user.is_anonymous:
+            return False
+        return Follow.objects.filter(user=user, author=obj.id).exists()
 
     def create(self, validated_data):
         user = User(

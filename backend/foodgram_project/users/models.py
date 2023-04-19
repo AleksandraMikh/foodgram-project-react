@@ -20,10 +20,32 @@ class ProfileUser(AbstractUser):
         max_length=150
     )
     follow = models.ManyToManyField(
-        'self', related_name='followers', symmetrical=False,
-        blank=True)
+        'self', related_name='followers',
+        # symmetrical=False,
+        blank=True, through='Follow')
 
     class Meta:
         ordering = ["email"]
         verbose_name_plural = "Пользователи"
         verbose_name = "Пользователь"
+
+
+class Follow(models.Model):
+    user = models.ForeignKey(ProfileUser,
+                             related_name='following',
+                             on_delete=models.CASCADE
+                             )
+    author = models.ForeignKey(ProfileUser,
+                               related_name='followers',
+                               on_delete=models.CASCADE
+                               )
+
+    class Meta:
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=('user', 'author'), name='user_unique_follow'
+            )
+        ]
+        verbose_name_plural = "Подписки"
+        verbose_name = "Подписка"

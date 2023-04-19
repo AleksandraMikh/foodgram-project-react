@@ -23,7 +23,9 @@ from django_filters import (rest_framework as rest_filters,
                             ModelMultipleChoiceFilter)
 from distutils.util import strtobool
 
-from recipes.models import Tag, Ingredient, Recipe, Ingredient_Recipe
+from recipes.models import (Tag, Ingredient, Recipe, Ingredient_Recipe,
+                            Favorite,
+                            Cart)
 from .serializers import (TagSerializer, IngredientSerializer,
                           RecipeReadSerializer, RecipeWriteSerializer,
                           RecipeMinifiedSerializer,
@@ -90,18 +92,20 @@ class RecipeViewSet(viewsets.ModelViewSet):
             queryset = queryset.annotate(
                 is_in_shopping_cart=models.Exists(Recipe.objects.none()))
             return queryset
-        subquery_fav = self.request.user.favorite_recipes.filter(
-            pk=models.OuterRef('pk'))
-        subquery_cart = self.request.user.recipes_in_cart.filter(
-            pk=models.OuterRef('pk'))
+        subquery_fav = Favorite.objects.filter(
+            user=self.request.user,
+            recipe_id=models.OuterRef('pk'))
+        subquery_cart = Cart.objects.filter(
+            user=self.request.user,
+            recipe_id=models.OuterRef('pk'))
         fav_queryset = queryset.annotate(
             is_favorited=models.Exists(subquery_fav))
         fin_queryset = fav_queryset.annotate(
             is_in_shopping_cart=models.Exists(subquery_cart))
-        print(fin_queryset.filter(is_in_shopping_cart=True))
         return fin_queryset
 
     def get_serializer_class(self):
+        print('hihi')
         if self.action in ['list', 'retrieve']:
             return RecipeReadSerializer
         if self.action in ['create', 'partial_update']:
@@ -238,15 +242,13 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         pdfmetrics.registerFont(
             TTFont('TimesNewRoman', 'static/api/fonts/times new roman.ttf'))
-
         recipes = request.user.recipes_in_cart.all()
         queryset = Ingredient_Recipe.objects.filter(
             recipe__in=recipes).values(
             'ingredient__name',
-            'ingredient__measurement_unit').annotate(amount=models.Sum('amount'))
-
+            'ingredient__measurement_unit'
+        ).annotate(amount=models.Sum('amount'))
         content = [('ингредиент', 'количество', 'единица измерения'), ]
-
         for item in queryset:
             print(item)
             content.append(
