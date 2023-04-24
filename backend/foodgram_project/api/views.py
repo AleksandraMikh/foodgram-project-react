@@ -1,10 +1,3 @@
-import io
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import Table, SimpleDocTemplate, TableStyle
-from reportlab.lib import colors
-from django.db import models
-from django.http import FileResponse
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from django.http import Http404
@@ -14,16 +7,18 @@ from rest_framework import (viewsets,
                             response,
                             status,
                             exceptions)
-from rest_framework.decorators import action, api_view
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.request import Request
-from rest_framework.generics import ListAPIView
 from django_filters import (rest_framework as rest_filters,
                             FilterSet, TypedChoiceFilter,
                             ModelMultipleChoiceFilter)
 from distutils.util import strtobool
+from djoser.views import UserViewSet
 
-from recipes.models import (Tag, Ingredient, Recipe, Ingredient_Recipe,
+from users.models import Follow
+from foodgram_project import pagination
+from recipes.models import (Tag, Ingredient, Recipe,
                             Favorite,
                             Cart)
 from .serializers import (TagSerializer, IngredientSerializer,
@@ -32,6 +27,7 @@ from .serializers import (TagSerializer, IngredientSerializer,
                           UserSubscribeSerializer
                           )
 from .permissions import IsOwnerOrReadOnly
+from .utils import pdf_maker
 
 User = get_user_model()
 
@@ -84,28 +80,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     filter_backends = (rest_filters.DjangoFilterBackend,)
     filterset_class = RecipeFilter
 
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        if not self.request.user.is_authenticated:
-            queryset = queryset.annotate(
-                is_favorited=models.Exists(Recipe.objects.none()))
-            queryset = queryset.annotate(
-                is_in_shopping_cart=models.Exists(Recipe.objects.none()))
-            return queryset
-        subquery_fav = Favorite.objects.filter(
-            user=self.request.user,
-            recipe_id=models.OuterRef('pk'))
-        subquery_cart = Cart.objects.filter(
-            user=self.request.user,
-            recipe_id=models.OuterRef('pk'))
-        fav_queryset = queryset.annotate(
-            is_favorited=models.Exists(subquery_fav))
-        fin_queryset = fav_queryset.annotate(
-            is_in_shopping_cart=models.Exists(subquery_cart))
-        return fin_queryset
-
     def get_serializer_class(self):
-        print('hihi')
         if self.action in ['list', 'retrieve']:
             return RecipeReadSerializer
         if self.action in ['create', 'partial_update']:
@@ -152,165 +127,120 @@ class RecipeViewSet(viewsets.ModelViewSet):
                                  headers=headers
                                  )
 
-    @action(detail=True, methods=['post'],
+    def add_obj(self, model, user, pk):
+        if model.objects.filter(user=user, recipe__id=pk).exists():
+            return Response({
+                'errors':
+                f'Рецепт уже добавлен в список {model._meta.verbose_name}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            recipe = get_object_or_404(Recipe, id=pk)
+        except Http404:
+            return response.Response({
+                "errors": f"Рецепт с id = {pk} не найден"},
+                status=status.HTTP_400_BAD_REQUEST)
+        model.objects.create(user=user, recipe=recipe)
+        serializer = RecipeMinifiedSerializer(recipe)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def delete_obj(self, model, user, pk):
+        try:
+            recipe = get_object_or_404(Recipe, id=pk)
+        except Http404:
+            return response.Response({
+                "errors": f"Рецепт с id = {pk} не найден"},
+                status=status.HTTP_400_BAD_REQUEST)
+        obj = model.objects.filter(user=user, recipe=recipe)
+        if obj.exists():
+            obj.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response({
+            'errors': f'Рецепт уже удален из списка {model._meta.verbose_name}'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post', 'delete'],
             serializer_class=RecipeMinifiedSerializer)
     def favorite(self, request, pk=None):
-        try:
-            recipe = get_object_or_404(Recipe,
-                                       pk=pk)
-        except Http404:
-            return response.Response({
-                "errors": f"Рецепт с id = {pk} не найден"},
-                status=status.HTTP_400_BAD_REQUEST)
-        curr_user = request.user
-        if recipe in curr_user.favorite_recipes.all():
-            return response.Response({
-                "errors": f"Рецепт с id={pk} уже добавлен в избранные"},
-                status=status.HTTP_400_BAD_REQUEST)
-        try:
-            curr_user.favorite_recipes.add(recipe)
-        except exceptions.APIException as error:
-            return response.Response({
-                "errors": error},
-                status=status.HTTP_400_BAD_REQUEST)
-        return response.Response(RecipeMinifiedSerializer(recipe).data,
-                                 status=status.HTTP_200_OK)
+        if request.method == 'POST':
+            return self.add_obj(Favorite, request.user, pk)
+        elif request.method == 'DELETE':
+            return self.delete_obj(Favorite, request.user, pk)
+        return None
 
-    @favorite.mapping.delete
-    def delete_favorite(self, request, pk=None):
-        try:
-            recipe = get_object_or_404(Recipe,
-                                       pk=pk)
-        except Http404:
-            return response.Response({
-                "errors": f"Рецепт с id = {pk} не найден"},
-                status=status.HTTP_400_BAD_REQUEST)
-        curr_user = request.user
-        if recipe in curr_user.favorite_recipes.all():
-            curr_user.favorite_recipes.remove(recipe)
-            return response.Response(status=status.HTTP_204_NO_CONTENT)
-        return response.Response({
-            "errors": (f'Текущий пользователь не добавлял рецепт с id={pk} '
-                       'в список избранных.')},
-            status=status.HTTP_400_BAD_REQUEST)
-
-    @action(detail=True, methods=['post'],
+    @action(detail=True, methods=['post', 'delete'],
             serializer_class=RecipeMinifiedSerializer)
     def shopping_cart(self, request, pk=None):
-        try:
-            recipe = get_object_or_404(Recipe,
-                                       pk=pk)
-        except Http404:
-            return response.Response({
-                "errors": f"Рецепт с id = {pk} не найден"},
-                status=status.HTTP_400_BAD_REQUEST)
-        curr_user = request.user
-        if recipe in curr_user.recipes_in_cart.all():
-            return response.Response({
-                "errors": f"Рецепт с id={pk} уже добавлен в корзину"},
-                status=status.HTTP_400_BAD_REQUEST)
-        try:
-            curr_user.recipes_in_cart.add(recipe)
-        except exceptions.APIException as error:
-            return response.Response({
-                "errors": error},
-                status=status.HTTP_400_BAD_REQUEST)
-        return response.Response(RecipeMinifiedSerializer(recipe).data,
-                                 status=status.HTTP_200_OK)
-
-    @shopping_cart.mapping.delete
-    def delete_shopping_cart(self, request, pk=None):
-        try:
-            recipe = get_object_or_404(Recipe,
-                                       pk=pk)
-        except Http404:
-            return response.Response({
-                "errors": f"Рецепт с id = {pk} не найден"},
-                status=status.HTTP_400_BAD_REQUEST)
-        curr_user = request.user
-        if recipe in curr_user.recipes_in_cart.all():
-            curr_user.recipes_in_cart.remove(recipe)
-            return response.Response(status=status.HTTP_204_NO_CONTENT)
-        return response.Response({
-            "errors": (f'Текущий пользователь не добавлял рецепт с id={pk} '
-                       'в корзину.')},
-            status=status.HTTP_400_BAD_REQUEST)
+        if request.method == 'POST':
+            return self.add_obj(Cart, request.user, pk)
+        elif request.method == 'DELETE':
+            return self.delete_obj(Cart, request.user, pk)
+        return None
 
     @action(detail=False, methods=['get'])
     def download_shopping_cart(self, request, *args, **kwargs):
-        buffer = io.BytesIO()
-
-        pdfmetrics.registerFont(
-            TTFont('TimesNewRoman', 'static/api/fonts/times new roman.ttf'))
-        recipes = request.user.recipes_in_cart.all()
-        queryset = Ingredient_Recipe.objects.filter(
-            recipe__in=recipes).values(
-            'ingredient__name',
-            'ingredient__measurement_unit'
-        ).annotate(amount=models.Sum('amount'))
-        content = [('ингредиент', 'количество', 'единица измерения'), ]
-        for item in queryset:
-            print(item)
-            content.append(
-                (item['ingredient__name'],
-                 item['amount'],
-                 item['ingredient__measurement_unit']))
-
-        doc = SimpleDocTemplate(buffer)
-        t = Table(content)
-
-        # LIST_STYLE = TableStyle()
-        LIST_STYLE = TableStyle(
-            [('LINEABOVE', (0, 0), (-1, 0), 2, colors.green),
-             ('LINEABOVE', (0, 1), (-1, 1), 2, colors.green),
-                ('LINEBELOW', (0, 1), (-1, -1), 0.25, colors.black),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('FONT', (0, 0), (-1, -1), 'TimesNewRoman')]
-        )
-
-        t.setStyle(LIST_STYLE)
-        doc.build([t])
-
-        buffer.seek(0)
-        return FileResponse(buffer, as_attachment=True, filename='hello.pdf')
+        return pdf_maker(request=request)
 
 
-@api_view(['DELETE', 'POST'])
-def subscribe(request: Request, user_id: str):
-    try:
-        user_to_subscribe = get_object_or_404(User,
-                                              pk=user_id)
-    except Http404:
-        raise exceptions.NotFound(f"Пользователь с id = {user_id} не найден")
+class CustomUserViewSet(UserViewSet):
 
-    if request.user.pk == int(user_id):
-        return Response({
-            "errors": f"Ваш id = {request.user.pk}, подписка на себя "
-            "запрещена."},
-            status=status.HTTP_400_BAD_REQUEST)
+    @action(
+        detail=True,
+        methods=['POST', 'DELETE'],
+        permission_classes=[permissions.IsAuthenticated]
+    )
+    def subscribe(self, request: Request, id: int = None):
+        try:
+            user_to_subscribe = get_object_or_404(User,
+                                                  pk=id)
+        except Http404:
+            raise exceptions.NotFound(
+                f"Пользователь с id = {id} не найден")
 
-    if request.method == 'POST':
-        if request.user.follow.filter(follow__pk=user_id):
+        if request.user.pk == id:
             return Response({
-                "errors": f"Вы уже подписаны на пользователя с id = {user_id}"},
+                "errors": f"Ваш id = {request.user.pk}, подписка на себя "
+                "запрещена."},
                 status=status.HTTP_400_BAD_REQUEST)
-        request.user.follow.add(user_to_subscribe)
+
+        if request.method == 'POST':
+            if Follow.objects.filter(user=request.user,
+                                     author=user_to_subscribe).exists():
+                return Response({
+                    "errors": f"Вы уже подписаны на пользователя с id = {id}"},
+                    status=status.HTTP_400_BAD_REQUEST)
+            Follow.objects.create(user=request.user,
+                                  author=user_to_subscribe)
+            serializer = UserSubscribeSerializer(
+                user_to_subscribe, context={'request': request})
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        if request.method == 'DELETE':
+            try:
+                follow = get_object_or_404(Follow,
+                                           user=request.user,
+                                           author=user_to_subscribe)
+            except Http404:
+                return Response({
+                    "errors": f'Вы не подписаны на пользователя с id={id}, '
+                    ' вы не можете отписаться от него'},
+                    status=status.HTTP_400_BAD_REQUEST)
+            follow.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(
+        detail=False,
+        permission_classes=[permissions.IsAuthenticated],
+        pagination_class=pagination.CustomPagination
+    )
+    def subscriptions(self, request):
+        queryset = request.user.follow.all()
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = UserSubscribeSerializer(
+                page, context={'request': request}, many=True)
+
+            return self.get_paginated_response(serializer.data)
+
         serializer = UserSubscribeSerializer(
-            user_to_subscribe, context={'request': request})
+            queryset, context={'request': request}, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
-    if request.method == 'DELETE':
-        if not request.user.follow.filter(follow__pk=user_id):
-            return Response({
-                "errors": f'Вы не подписаны на пользователя с id={user_id}, '
-                ' вы не можете отписаться от него'},
-                status=status.HTTP_400_BAD_REQUEST)
-        request.user.follow.remove(user_to_subscribe)
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-class SubscriptionsListView(ListAPIView):
-    serializer_class = UserSubscribeSerializer
-
-    def get_queryset(self):
-        return self.request.user.follow.all()

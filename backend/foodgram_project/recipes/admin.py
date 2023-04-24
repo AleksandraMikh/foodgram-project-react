@@ -36,7 +36,7 @@ class RecipeAdmin(admin.ModelAdmin):
               'tags',
               )
     save_on_top = True
-    inlines = (IngredientInlineAdmin)
+    inlines = (IngredientInlineAdmin,)
 
     def has_add_permission(self, request, obj=None):
         return False

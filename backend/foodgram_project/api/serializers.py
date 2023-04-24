@@ -1,9 +1,8 @@
 import base64
 
 from django.core.files.base import ContentFile
-from django.db import IntegrityError
 from django.contrib.auth import get_user_model
-
+from django.shortcuts import get_object_or_404
 from rest_framework import serializers, exceptions
 
 from recipes.models import (Tag, Ingredient, Recipe,
@@ -11,13 +10,6 @@ from recipes.models import (Tag, Ingredient, Recipe,
 from users.serializers import UserManageSerializer
 
 User = get_user_model()
-
-
-class DoubleIngredientRecipeRelationship(exceptions.APIException):
-    status_code = 400
-    default_detail = ('Integrity error, there might be '
-                      'duplicate ingredient in request.')
-    default_code = 'bad_request'
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -46,7 +38,9 @@ class IngredientRecipeSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='ingredient.id')
     name = serializers.CharField(source='ingredient.name', read_only=True)
     measurement_unit = serializers.CharField(
-        source='ingredient.measurement_unit', read_only=True)
+        source='ingredient.measurement_unit',
+        read_only=True
+    )
 
     class Meta:
         model = Ingredient_Recipe
@@ -80,25 +74,16 @@ class RecipeReadSerializer(serializers.ModelSerializer):
         depth = 1
 
     def get_is_favorited(self, obj):
-
-        if not self.context.get('request').auth:
-            return None
-        if hasattr(obj, 'is_favorited'):
-            return obj.is_favorited
-        curr_user = self.context.get('request').user
-        if Favorite.objects.filter(user=curr_user, recipe=obj).exists():
-            return True
-        return False
+        user = self.context.get('request').user
+        if user.is_anonymous:
+            return False
+        return Favorite.objects.filter(user=user, recipe=obj).exists()
 
     def get_is_in_shopping_cart(self, obj):
-        if not self.context.get('request').auth:
-            return None
-        if hasattr(obj, 'is_in_shopping_cart'):
-            return obj.is_in_shopping_cart
-        curr_user = self.context.get('request').user
-        if Cart.objects.filter(user=curr_user, recipe=obj).exists():
-            return True
-        return False
+        user = self.context.get('request').user
+        if user.is_anonymous:
+            return False
+        return Cart.objects.filter(user=user, recipe=obj).exists()
 
 
 class Base64ImageField(serializers.ImageField):
@@ -136,63 +121,68 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             "cooking_time"]
         depth = 1
 
+    def is_valid(self, **kwargs):
+        for ingredient_item in self.initial_data['ingredients']:
+            if int(ingredient_item['amount']) < 1:
+                raise serializers.ValidationError({
+                    'ingredients': [(
+                        'Убедитесь, что количество каждого ингредиента'
+                        ' не меньше 1'
+                    )]
+                })
+        return super().is_valid(**kwargs)
+
+    def validate_ingredients(self, data):
+        if not data:
+            raise serializers.ValidationError(
+                'Нужен минимум один ингредиент для рецепта')
+
+        ingredient_list = []
+        ingredient_id_list = []
+        for ingredient_item in data:
+            ingredient = get_object_or_404(
+                Ingredient,
+                id=ingredient_item['ingredient']['id']
+            )
+            if ingredient.id in ingredient_id_list:
+                raise serializers.ValidationError(
+                    'Названия ингредиентов должны быть уникальными'
+                )
+            ingredient_list.append({
+                'ingredient': ingredient,
+                'amount': ingredient_item['amount']}
+            )
+            ingredient_id_list.append(ingredient.id)
+        return ingredient_list
+
+    def create_ingredients(self, ingredients, recipe):
+        obj = [
+            Ingredient_Recipe(
+                recipe=recipe,
+                ingredient=ingredient['ingredient'],
+                amount=ingredient['amount']
+            )
+            for ingredient in ingredients
+        ]
+
+        Ingredient_Recipe.objects.bulk_create(obj)
+
     def create(self, validated_data):
-
-        tags = validated_data.pop("tags")
-        ingredients = validated_data.pop("ingredient_recipe")
-        r = Recipe(**validated_data)
-        r.save()
-        for tag in tags:
-            try:
-                t = Tag.objects.get(pk=tag)
-            except Tag.DoesNotExist:
-                raise exceptions.NotFound(
-                    f"Tag with id {tag} doesn't exist")
-            r.tags.add(t)
-
-        ingredients_to_add = []
-        for ingredient in ingredients:
-            try:
-                i = Ingredient.objects.get(pk=ingredient['ingredient']['id'])
-            except Ingredient.DoesNotExist:
-                raise exceptions.NotFound(
-                    f"Ingredient with id {ingredient['ingredient']['id']} "
-                    "doesn't exist")
-            i_s = Ingredient_Recipe(ingredient=i,
-                                    recipe=r,
-                                    amount=ingredient['amount'])
-            ingredients_to_add.append(i_s)
-        try:
-            Ingredient_Recipe.objects.bulk_create(ingredients_to_add)
-        except IntegrityError:
-            raise DoubleIngredientRecipeRelationship()
-
-        return r
+        ingredients_data = validated_data.pop('ingredient_recipe')
+        tags = validated_data.pop('tags')
+        recipe = Recipe.objects.create(**validated_data)
+        recipe.tags.set(tags)
+        self.create_ingredients(ingredients_data, recipe)
+        return recipe
 
     def update(self, instance, validated_data):
-        ingredients = validated_data.pop("ingredient_recipe")
-
-        instance = super().update(instance, validated_data)
-
-        ingredients_to_add = []
-        for ingredient in ingredients:
-            try:
-                i = Ingredient.objects.get(pk=ingredient['ingredient']['id'])
-            except Ingredient.DoesNotExist:
-                raise exceptions.NotFound(
-                    f"Ingredient with id {ingredient['ingredient']['id']} "
-                    "doesn't exist")
-            i_s = Ingredient_Recipe(ingredient=i,
-                                    recipe=instance,
-                                    amount=ingredient['amount'])
-            ingredients_to_add.append(i_s)
-
-        Ingredient_Recipe.objects.filter(recipe=instance).delete()
-        try:
-            Ingredient_Recipe.objects.bulk_create(ingredients_to_add)
-        except IntegrityError:
-            raise DoubleIngredientRecipeRelationship()
-        return instance
+        ingredients = validated_data.pop('ingredient_recipe')
+        tags = validated_data.pop('tags')
+        instance.ingredients.clear()
+        self.create_ingredients(ingredients, instance)
+        instance.tags.clear()
+        instance.tags.set(tags)
+        return super().update(instance, validated_data)
 
 
 class RecipeMinifiedSerializer(serializers.ModelSerializer):

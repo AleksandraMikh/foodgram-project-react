@@ -21,7 +21,6 @@ class ProfileUser(AbstractUser):
     )
     follow = models.ManyToManyField(
         'self', related_name='followers',
-        # symmetrical=False,
         blank=True, through='Follow')
 
     class Meta:
