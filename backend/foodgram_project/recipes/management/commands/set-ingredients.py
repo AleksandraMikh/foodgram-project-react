@@ -8,7 +8,7 @@ from recipes.models import Ingredient
 class Command(BaseCommand):
     def fill_models_without_foreign_keys(self):
         with open(os.path.join(
-                BASE_DIR, 'static/data/ingredients.csv')) as csvfile:
+                BASE_DIR, 'static_backend/data/ingredients.csv')) as csvfile:
             fieldnames = ['name', 'measurement_unit']
             reader = csv.DictReader(csvfile, fieldnames)
             result = []
