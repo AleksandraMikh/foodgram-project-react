@@ -14,7 +14,7 @@ def pdf_maker(request):
     buffer = io.BytesIO()
 
     pdfmetrics.registerFont(
-        TTFont('TimesNewRoman', 'static/api/fonts/times new roman.ttf'))
+        TTFont('TimesNewRoman', 'static_backend/api/fonts/times new roman.ttf'))
     recipes = request.user.recipes_in_cart.all()
     queryset = Ingredient_Recipe.objects.filter(
         recipe__in=recipes).values(

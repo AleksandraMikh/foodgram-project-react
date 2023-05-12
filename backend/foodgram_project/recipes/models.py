@@ -118,7 +118,8 @@ class Cart(models.Model):
 
     recipe = models.ForeignKey(
         Recipe,
-        related_name='user_added_recipe_to_cart',
+        # related_name='user_added_recipe_to_cart',
+        related_name='is_in_shopping_cart',
         on_delete=models.CASCADE
     )
 

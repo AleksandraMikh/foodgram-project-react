@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from django.http import Http404
+from django.db.models import OuterRef, Exists
 from rest_framework import (viewsets,
                             permissions,
                             filters,
@@ -62,10 +63,32 @@ class RecipeFilter(FilterSet):
         queryset=Tag.objects.all(),
         conjoined=True)
 
-    is_favorited = TypedChoiceFilter(choices=BOOLEAN_CHOICES,
-                                     coerce=strtobool)
     is_in_shopping_cart = TypedChoiceFilter(choices=BOOLEAN_CHOICES,
-                                            coerce=strtobool)
+                                            coerce=strtobool,
+                                            method='filter_is_in_shopping_cart'
+                                            )
+    is_favorited = TypedChoiceFilter(choices=BOOLEAN_CHOICES,
+                                     coerce=strtobool,
+                                     method='filter_is_favorited'
+                                     )
+
+    def filter_is_in_shopping_cart(self, queryset, name, value):
+        if value == 0:
+            return queryset
+        else:
+            cart_sub = Cart.objects.filter(user=self.request.user,
+                                           recipe__pk=OuterRef('pk'))
+            queryset = queryset.filter(Exists(cart_sub))
+            return queryset
+
+    def filter_is_favorited(self, queryset, name, value):
+        if value == 0:
+            return queryset
+        else:
+            fav_sub = Favorite.objects.filter(user=self.request.user,
+                                              recipe__pk=OuterRef('pk'))
+            queryset = queryset.filter(Exists(fav_sub))
+            return queryset
 
     class Meta:
         model = Recipe
