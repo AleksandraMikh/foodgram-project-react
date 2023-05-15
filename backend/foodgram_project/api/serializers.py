@@ -3,8 +3,7 @@ import base64
 from django.core.files.base import ContentFile
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
-from rest_framework import serializers, exceptions
-
+from rest_framework import serializers
 from recipes.models import (Tag, Ingredient, Recipe,
                             IngredientRecipe, Favorite, Cart)
 from users.serializers import UserManageSerializer

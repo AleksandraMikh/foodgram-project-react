@@ -16,7 +16,6 @@ from django_filters import (rest_framework as rest_filters,
                             ModelMultipleChoiceFilter)
 from distutils.util import strtobool
 from djoser.views import UserViewSet
-
 from users.models import Follow
 from foodgram_project import pagination
 from recipes.models import (Tag, Ingredient, Recipe,
@@ -75,20 +74,18 @@ class RecipeFilter(FilterSet):
     def filter_is_in_shopping_cart(self, queryset, name, value):
         if value == 0:
             return queryset
-        else:
-            cart_sub = Cart.objects.filter(user=self.request.user,
-                                           recipe__pk=OuterRef('pk'))
-            queryset = queryset.filter(Exists(cart_sub))
-            return queryset
+        cart_sub = Cart.objects.filter(user=self.request.user,
+                                       recipe__pk=OuterRef('pk'))
+        queryset = queryset.filter(Exists(cart_sub))
+        return queryset
 
     def filter_is_favorited(self, queryset, name, value):
         if value == 0:
             return queryset
-        else:
-            fav_sub = Favorite.objects.filter(user=self.request.user,
-                                              recipe__pk=OuterRef('pk'))
-            queryset = queryset.filter(Exists(fav_sub))
-            return queryset
+        fav_sub = Favorite.objects.filter(user=self.request.user,
+                                          recipe__pk=OuterRef('pk'))
+        queryset = queryset.filter(Exists(fav_sub))
+        return queryset
 
     class Meta:
         model = Recipe
@@ -108,6 +105,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return RecipeReadSerializer
         if self.action in ['create', 'partial_update']:
             return RecipeWriteSerializer
+        raise NotImplementedError(
+            'RecipeViewSet works only with actions list, retrieve, create, '
+            'partial update')
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -125,8 +125,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
                                  )
 
     def perform_create(self, serializer):
-        instance = serializer.save()
-        return instance
+        return serializer.save()
 
     def update(self, request, *args, **kwargs):
         return response.Response("Method PUT not allowed, try PATCH",
@@ -186,7 +185,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def favorite(self, request, pk=None):
         if request.method == 'POST':
             return self.add_obj(Favorite, request.user, pk)
-        elif request.method == 'DELETE':
+        if request.method == 'DELETE':
             return self.delete_obj(Favorite, request.user, pk)
         return None
 
@@ -195,7 +194,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def shopping_cart(self, request, pk=None):
         if request.method == 'POST':
             return self.add_obj(Cart, request.user, pk)
-        elif request.method == 'DELETE':
+        if request.method == 'DELETE':
             return self.delete_obj(Cart, request.user, pk)
         return None
 

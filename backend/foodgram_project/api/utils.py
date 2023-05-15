@@ -14,7 +14,8 @@ def pdf_maker(request):
     buffer = io.BytesIO()
 
     pdfmetrics.registerFont(
-        TTFont('TimesNewRoman', 'static_backend/api/fonts/times new roman.ttf'))
+        TTFont('TimesNewRoman',
+               'static_backend/api/fonts/times new roman.ttf'))
     recipes = request.user.recipes_in_cart.all()
     queryset = IngredientRecipe.objects.filter(
         recipe__in=recipes).values(
@@ -31,7 +32,7 @@ def pdf_maker(request):
     doc = SimpleDocTemplate(buffer)
     t = Table(content)
 
-    LIST_STYLE = TableStyle(
+    list_style = TableStyle(
         [('LINEABOVE', (0, 0), (-1, 0), 2, colors.green),
             ('LINEABOVE', (0, 1), (-1, 1), 2, colors.green),
             ('LINEBELOW', (0, 1), (-1, -1), 0.25, colors.black),
@@ -39,7 +40,7 @@ def pdf_maker(request):
             ('FONT', (0, 0), (-1, -1), 'TimesNewRoman')]
     )
 
-    t.setStyle(LIST_STYLE)
+    t.setStyle(list_style)
     doc.build([t])
 
     buffer.seek(0)
