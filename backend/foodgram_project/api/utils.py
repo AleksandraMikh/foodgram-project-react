@@ -6,7 +6,6 @@ from reportlab.platypus import Table, SimpleDocTemplate, TableStyle
 from reportlab.lib import colors
 from django.db import models
 from django.http import FileResponse
-
 from recipes.models import IngredientRecipe
 
 
