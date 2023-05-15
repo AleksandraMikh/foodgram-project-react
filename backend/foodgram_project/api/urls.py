@@ -6,7 +6,6 @@ from .views import (TagViewSet,
                     RecipeViewSet,
                     CustomUserViewSet)
 
-
 app = 'api'
 
 router = DefaultRouter()
