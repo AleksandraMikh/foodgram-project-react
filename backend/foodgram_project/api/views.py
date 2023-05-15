@@ -22,7 +22,6 @@ from foodgram_project import pagination
 from recipes.models import (Tag, Ingredient, Recipe,
                             Favorite,
                             Cart)
-
 from .serializers import (TagSerializer, IngredientSerializer,
                           RecipeReadSerializer, RecipeWriteSerializer,
                           RecipeMinifiedSerializer,
