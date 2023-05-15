@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import serializers, exceptions
 
 from recipes.models import (Tag, Ingredient, Recipe,
-                            Ingredient_Recipe, Favorite, Cart)
+                            IngredientRecipe, Favorite, Cart)
 from users.serializers import UserManageSerializer
 
 User = get_user_model()
@@ -43,7 +43,7 @@ class IngredientRecipeSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = Ingredient_Recipe
+        model = IngredientRecipe
         fields = ["id",
                   "name",
                   "measurement_unit",
@@ -157,7 +157,7 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
 
     def create_ingredients(self, ingredients, recipe):
         obj = [
-            Ingredient_Recipe(
+            IngredientRecipe(
                 recipe=recipe,
                 ingredient=ingredient['ingredient'],
                 amount=ingredient['amount']
@@ -165,7 +165,7 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             for ingredient in ingredients
         ]
 
-        Ingredient_Recipe.objects.bulk_create(obj)
+        IngredientRecipe.objects.bulk_create(obj)
 
     def create(self, validated_data):
         ingredients_data = validated_data.pop('ingredient_recipe')

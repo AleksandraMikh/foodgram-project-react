@@ -1,11 +1,13 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+
 from django.core.validators import MinValueValidator
 
 User = get_user_model()
 
-
 # Create your models here.
+
+
 class Tag(models.Model):
     '''model for tags'''
 
@@ -70,7 +72,7 @@ class Recipe(models.Model):
     tags = models.ManyToManyField(Tag, verbose_name='Тэги')
     ingredients = models.ManyToManyField(
         Ingredient,
-        through='Ingredient_Recipe',
+        through='IngredientRecipe',
         verbose_name='Ингредиенты',
         related_name='recipes_with_ingredient',
         blank=False)
@@ -161,7 +163,7 @@ class Favorite(models.Model):
         return str(self.recipe)
 
 
-class Ingredient_Recipe(models.Model):
+class IngredientRecipe(models.Model):
     ingredient = models.ForeignKey(
         Ingredient, on_delete=models.CASCADE,
         related_name='ingredient_recipe')

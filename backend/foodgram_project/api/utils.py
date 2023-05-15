@@ -7,7 +7,7 @@ from reportlab.lib import colors
 from django.db import models
 from django.http import FileResponse
 
-from recipes.models import Ingredient_Recipe
+from recipes.models import IngredientRecipe
 
 
 def pdf_maker(request):
@@ -16,7 +16,7 @@ def pdf_maker(request):
     pdfmetrics.registerFont(
         TTFont('TimesNewRoman', 'static_backend/api/fonts/times new roman.ttf'))
     recipes = request.user.recipes_in_cart.all()
-    queryset = Ingredient_Recipe.objects.filter(
+    queryset = IngredientRecipe.objects.filter(
         recipe__in=recipes).values(
         'ingredient__name',
         'ingredient__measurement_unit'
