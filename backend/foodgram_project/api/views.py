@@ -21,6 +21,7 @@ from foodgram_project import pagination
 from recipes.models import (Tag, Ingredient, Recipe,
                             Favorite,
                             Cart)
+
 from .serializers import (TagSerializer, IngredientSerializer,
                           RecipeReadSerializer, RecipeWriteSerializer,
                           RecipeMinifiedSerializer,
@@ -76,16 +77,14 @@ class RecipeFilter(FilterSet):
             return queryset
         cart_sub = Cart.objects.filter(user=self.request.user,
                                        recipe__pk=OuterRef('pk'))
-        queryset = queryset.filter(Exists(cart_sub))
-        return queryset
+        return queryset.filter(Exists(cart_sub))
 
     def filter_is_favorited(self, queryset, name, value):
         if value == 0:
             return queryset
         fav_sub = Favorite.objects.filter(user=self.request.user,
                                           recipe__pk=OuterRef('pk'))
-        queryset = queryset.filter(Exists(fav_sub))
-        return queryset
+        return queryset.filter(Exists(fav_sub))
 
     class Meta:
         model = Recipe
@@ -248,6 +247,9 @@ class CustomUserViewSet(UserViewSet):
                     status=status.HTTP_400_BAD_REQUEST)
             follow.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
+
+        raise NotImplementedError(
+            'CustomUserViewSet done for POST and DELETE methods')
 
     @action(
         detail=False,
