@@ -73,5 +73,5 @@ jobs:
           # Выполняет pull образа с DockerHub
           # sudo docker pull alexandramikh33/foodgram
           #остановка всех контейнеров
-          sudo docker kill $(sudo docker ps -a -q)
+          # sudo docker kill $(sudo docker ps -a -q)
           sudo docker run --rm -d -p 5000:5000 alexandramikh33/foodgram 
