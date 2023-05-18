@@ -82,6 +82,7 @@ jobs:
           sudo docker-compose rm foodgram_backend
           sudo docker pull alexandramikh33/foodgram_backend
           sudo docker pull alexandramikh33/foodgram_frontend
+          
           touch .env
           echo DB_ENGINE=${{ secrets.DB_ENGINE }} >> .env
           echo DB_NAME=${{ secrets.DB_NAME }} >> .env
