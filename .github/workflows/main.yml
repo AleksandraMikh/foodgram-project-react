@@ -77,17 +77,11 @@ jobs:
         username: ${{ secrets.USER }}
         key: ${{ secrets.SSH_KEY }}
         script: |
-          # Выполняет pull образа с DockerHub
-          # sudo docker pull alexandramikh33/foodgram_backend
-          # sudo docker pull alexandramikh33/foodgram_frontend
-          # #остановка всех контейнеров
-          # sudo docker stop $(sudo docker ps -a -q)
-          # sudo docker run -d -p 5000:5000 alexandramikh33/foodgram_backend 
-          # sudo docker run -d -p 8000:8000 alexandramikh33/foodgram_frontend
-
           sudo docker-compose stop
           sudo docker-compose rm foodgram_frontend
           sudo docker-compose rm foodgram_backend
+          sudo docker pull alexandramikh33/foodgram_backend
+          sudo docker pull alexandramikh33/foodgram_frontend
           touch .env
           echo DB_ENGINE=${{ secrets.DB_ENGINE }} >> .env
           echo DB_NAME=${{ secrets.DB_NAME }} >> .env
