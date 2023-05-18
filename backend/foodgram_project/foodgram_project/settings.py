@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-bwg)x*&8q(y2cnqgc_c10rynxip^zztu)n%mvop(a21+57c!hg
 DEBUG = False
 
 ALLOWED_HOSTS = [
-    # 'http://158.160.66.255/',
+    'http://158.160.66.255/',
     'backend:8000']
 
 AUTH_USER_MODEL = 'users.ProfileUser'
