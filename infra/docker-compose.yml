@@ -19,10 +19,7 @@ services:
       - ./.env
   
   frontend:
-    # build:
     image: alexandramikh33/foodgram_frontend:latest
-      # context: alexandramikh33/foodgram_frontend:latest
-      # dockerfile: Dockerfile
     volumes:
       - ../frontend/:/app/result_build/
     depends_on:
