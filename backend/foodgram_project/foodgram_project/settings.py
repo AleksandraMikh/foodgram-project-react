@@ -24,10 +24,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-bwg)x*&8q(y2cnqgc_c10rynxip^zztu)n%mvop(a21+57c!hg'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['*',
-                 'backend:8000']
+ALLOWED_HOSTS = [
+    # 'http://158.160.66.255/',
+    'backend:8000']
 
 AUTH_USER_MODEL = 'users.ProfileUser'
 # Application definition
