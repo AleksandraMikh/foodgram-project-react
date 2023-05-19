@@ -1,3 +1,9 @@
+# Foodgram, второе ревью
+Адрес: http://158.160.66.255/
+Логин: admin
+Почта: admin@admin.ru
+Пароль: admin
+
 # Foodgram, первое ревью
 
 Работа лежит в директории backend/
