@@ -65,8 +65,9 @@ jobs:
         key: ${{ secrets.SSH_KEY }}
         script: |
           sudo docker-compose stop
-          sudo docker-compose rm frontend
-          sudo docker-compose rm backend
+          # sudo docker-compose rm frontend
+          # sudo docker-compose rm backend
+          sudo docker container prune -f
           sudo docker pull alexandramikh33/foodgram_backend
           sudo docker pull alexandramikh33/foodgram_frontend
 
