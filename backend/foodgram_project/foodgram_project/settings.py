@@ -61,22 +61,20 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:80',
-    'http://158.160.66.255',
-    'http://158.160.66.255:1',
-    'http://158.160.66.255',
-    'backend',
-    'http://localhost/admin/',
-    'http://158.160.66.255/admin/'
-]
-# CORS_ORIGIN_ALLOW_ALL = True
+# CORS_ALLOWED_ORIGINS = [
+#     'http://localhost:80',
+#     'http://158.160.66.255',
+#     'http://158.160.66.255:1',
+#     'http://158.160.66.255',
+#     'backend',
+#     'http://localhost/admin/',
+#     'http://158.160.66.255/admin/'
+# ]
+CORS_ORIGIN_ALLOW_ALL = True
 
 CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1',
     'http://158.160.66.255',
-    'http://158.160.66.255/admin/'
-    'http://158.160.66.255/api/'
 ]
 
 
