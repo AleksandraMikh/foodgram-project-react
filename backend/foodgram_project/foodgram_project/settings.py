@@ -74,6 +74,7 @@ CORS_ORIGIN_ALLOW_ALL = True
 
 CORS_URLS_REGEX = r'^/(api|admin)/.*$'
 
+
 CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1',
     'http://158.160.66.255',
